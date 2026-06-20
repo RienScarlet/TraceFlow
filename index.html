@@ -1450,10 +1450,10 @@
     background: var(--surface);
   }
 
-  /* On desktop the tray sticks below just the top-bar (sidebar takes tab-bar place) */
+  /* On desktop the tray sticks below top-bar + stats-strip (sidebar takes tab-bar place) */
   @media (min-width: 900px) {
     #live-tray {
-      top: var(--top-h);
+      top: calc(var(--top-h) + 28px);
     }
   }
 
@@ -2144,8 +2144,8 @@
   @media (min-width: 900px) {
     #tab-bar {
       position: sticky;
-      top: var(--top-h);
-      height: calc(100vh - var(--top-h));
+      top: calc(var(--top-h) + 28px);
+      height: calc(100vh - var(--top-h) - 28px);
       flex-direction: column;
       overflow-y: auto;
       overflow-x: hidden;
@@ -2172,7 +2172,7 @@
     }
     #content {
       overflow-y: auto;
-      height: calc(100vh - var(--top-h));
+      height: calc(100vh - var(--top-h) - 28px);
       padding: var(--pad);
       padding-bottom: 50px;
     }
@@ -5217,7 +5217,8 @@ function renderCharts() {
   drawTrend(entries, W);
   drawHistogram(entries, W);
   const clockEntries = entries.filter(e => e.startTs && e.startTs > 1000000);
-  const W2 = document.getElementById('chart-clock') ? document.getElementById('chart-clock').offsetWidth || 340 : 340;
+  const clockEl = document.getElementById('chart-clock');
+  const W2 = clockEl ? (clockEl.offsetWidth || W || 340) : (W || 340);
   drawClock(clockEntries, W2);
 }
 
@@ -5592,7 +5593,7 @@ function drawHistogram(entries, W) {
     svg += `<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)" font-family="monospace">${totalStr}</text>`;
 
     const svgH = size + 8;
-    el.innerHTML = `<svg width="${size}" height="${svgH}" viewBox="0 0 ${size} ${svgH}" style="display:block;margin:0 auto;">${svg}</svg>`;
+    el.innerHTML = `<svg width="100%" viewBox="0 0 ${size} ${svgH}" style="display:block;max-width:${size}px;margin:0 auto;">${svg}</svg>`;
 
     if (legendEl) {
       const aggrMap = {};
