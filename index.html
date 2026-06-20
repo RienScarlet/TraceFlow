@@ -10,7 +10,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="TimeStudy">
+<meta name="apple-mobile-web-app-title" content="TraceFlow">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152.png">
 <link rel="apple-touch-icon" sizes="144x144" href="icons/icon-144.png">
@@ -19,20 +19,20 @@
 <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96.png">
 
 <!-- SEO / Share -->
-<meta name="description" content="Time Study V2 — live timers, manual entry, charts &amp; multi-study management.">
-<meta name="application-name" content="Time Study V2">
-<title>Time Study V2</title>
+<meta name="description" content="TraceFlow — live timers, manual entry, charts &amp; multi-study management.">
+<meta name="application-name" content="TraceFlow">
+<title>TraceFlow</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700&family=DM+Sans:wght@400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"
-        onerror="window._xlsxUnavailable=true;console.warn('[TimeStudy] XLSX library unavailable offline — open once while online to cache it.');"></script>
+        onerror="window._xlsxUnavailable=true;console.warn('[TraceFlow] XLSX library unavailable offline — open once while online to cache it.');"></script>
 <style>
   :root {
-    --bg:       #f0efe9;
-    --surface:  #fafaf7;
-    --surface2: #eceae2;
-    --border:   #d8d5cb;
+    --bg:       #f5f5f2;
+    --surface:  #ffffff;
+    --surface2: #f0f0ed;
+    --border:   #e2e2dc;
     --text:     #0f0e0c;
     --text2:    #5c5a54;
     --text3:    #a8a59c;
@@ -145,7 +145,7 @@
   }
 
   @media (min-width: 768px) {
-    body { background: #dddbd2; }
+    body { background: #e8e8e4; }
   }
   [data-theme="dark"] body { background: var(--bg); }
   @media (min-width: 768px) {
@@ -1569,8 +1569,8 @@
   .chip-group-label:first-child { margin-top: 0; }
   .chip-group-dot {
     display: inline-block;
-    width: 7px;
-    height: 7px;
+    width: 10px;
+    height: 10px;
     border-radius: 50%;
     flex-shrink: 0;
   }
@@ -2137,7 +2137,7 @@
     flex: 1;
   }
   @media (min-width: 900px) {
-    #main-layout { display: grid; grid-template-columns: 200px 1fr; flex: unset; }
+    #main-layout { display: grid; grid-template-columns: 160px 1fr; flex: unset; }
   }
 
   /* ── Desktop sidebar tweaks ── */
@@ -2152,14 +2152,14 @@
       border-bottom: none;
       border-right: 1px solid var(--border);
       padding: 8px 0;
-      width: 200px;
+      width: 160px;
     }
     .tab-btn {
       border-bottom: none !important;
       border-left: 2px solid transparent;
       border-radius: 0;
       text-align: left;
-      padding: 10px 20px;
+      padding: 10px 14px;
       font-size: 11px;
       letter-spacing: 0.06em;
       width: 100%;
@@ -2178,19 +2178,42 @@
     }
     .stat-grid { grid-template-columns: repeat(4, 1fr); }
   }
+
+  /* ── STATS STRIP ─────────────────────────────────────────────────────── */
+  #stats-strip {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 4px var(--pad);
+    font-family: var(--mono);
+    font-size: var(--xs-font);
+    color: var(--text3);
+    letter-spacing: 0.06em;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  #stats-strip .ss-val { color: var(--text2); font-weight: 600; }
+  #stats-strip .ss-live { color: var(--green); }
+  @media (max-width: 480px) { #stats-strip { display: none; } }
+  @media (min-width: 900px) {
+    #stats-strip { position: sticky; top: var(--top-h); z-index: 98; }
+  }
 </style>
 </head>
 <body>
 <div id="app">
   <div id="top-bar">
     <div>
-      <div id="top-bar-title">Time Study V2</div>
+      <div id="top-bar-title">TraceFlow</div>
       <div id="top-bar-sub">No study selected</div>
     </div>
     <button id="profile-chip" onclick="toggleContextPanel()" title="Profile & Studies">
       <span id="profile-chip-label">Profile</span> ▾
     </button>
   </div>
+  <div id="stats-strip"></div>
   <div id="storage-warn">⚠ Storage nearly full. Export data to free space.</div>
   <!-- Profile + Studies context panel -->
   <div id="context-panel" style="display:none;position:fixed;top:var(--top-h);left:0;right:0;
@@ -2265,6 +2288,7 @@
 <script>
 // ===== GLOBALS =====
 let db = null;
+  let clockMode = '12';
 let activeSessions = []; // [{id, activityName, startTs, paused, pausedAt, totalPausedMs, note, exception}]
 // On-demand (unassigned) timers — array so multiple can run simultaneously
 // Each: { id, label, running, startTs, totalMs, showSave }
@@ -2341,9 +2365,10 @@ function todayStr() {
 }
 
 function loadDb() {
-  // Migration from V1
-  const v1Raw = localStorage.getItem('timeStudyDb');
-  if (v1Raw && !localStorage.getItem('timeStudyDb_v2')) {
+  // Migration from V1 (traceFlowDb_legacy = old timeStudyDb key)
+  // TraceFlow: migrated from timeStudyDb_v2
+  const v1Raw = localStorage.getItem('traceFlowDb_legacy');
+  if (v1Raw && !localStorage.getItem('traceFlowDb_v1')) {
     try {
       const v1 = JSON.parse(v1Raw);
       const profileId = generateId();
@@ -2373,15 +2398,15 @@ function loadDb() {
         notes: ''
       }];
       migratedDb.settings = v1.settings || migratedDb.settings;
-      localStorage.setItem('timeStudyDb_v2', JSON.stringify(migratedDb));
-      localStorage.removeItem('timeStudyDb');
+      localStorage.setItem('traceFlowDb_v1', JSON.stringify(migratedDb));
+      localStorage.removeItem('traceFlowDb_legacy');
       db = migratedDb;
       showNotice('V1 data imported successfully.', 'blue');
       return;
     } catch(e) { /* ignore migration errors */ }
   }
 
-  const raw = localStorage.getItem('timeStudyDb_v2');
+  const raw = localStorage.getItem('traceFlowDb_v1');
   if (raw) {
     try { db = JSON.parse(raw); }
     catch(e) { db = defaultDb(); }
@@ -2406,13 +2431,13 @@ function loadDb() {
 }
 
 function saveDb() {
-  localStorage.setItem('timeStudyDb_v2', JSON.stringify(db));
+  localStorage.setItem('traceFlowDb_v1', JSON.stringify(db));
   checkStorage();
 }
 
 function checkStorage() {
   try {
-    const bytes = new Blob([localStorage.getItem('timeStudyDb_v2') || '']).size;
+    const bytes = new Blob([localStorage.getItem('traceFlowDb_v1') || '']).size;
     const warn = document.getElementById('storage-warn');
     if (warn) warn.style.display = bytes > 7 * 1024 * 1024 ? 'block' : 'none';
   } catch(e) {}
@@ -2519,6 +2544,7 @@ function stopTimerInterval() {
 }
 
 function tickTimers() {
+  updateStatsStrip();
   if (activeTab !== 'live') return;
   const focused = document.activeElement;
   const keyboardOpen = (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA' || focused.tagName === 'SELECT'))
@@ -2984,6 +3010,7 @@ window.addEventListener('popstate', e => {
 
 function render() {
   updateTopBar();
+  updateStatsStrip();
   _updateNotesFabVisibility();
   const tabs = {
     live: renderLive,
@@ -3006,6 +3033,19 @@ function updateTopBar() {
   const chipLabel = document.getElementById('profile-chip-label');
   if (chipLabel) chipLabel.textContent = p ? p.name : 'Profile';
 }
+
+  function updateStatsStrip() {
+    const el = document.getElementById('stats-strip');
+    if (!el) return;
+    const study = currentStudy();
+    const today = todayStr();
+    const entries = study ? (study.entries||[]).filter(e => !e.deletedAt && e.date === today) : [];
+    const todaySecs = entries.reduce((s,e) => s + (e.duration||0), 0);
+    const liveCount = activeSessions.length + onDemandTimers.filter(o => o.running).length;
+    let html = `<span>TODAY</span><span><span class="ss-val">${secsToStr(todaySecs)}</span> tracked</span><span><span class="ss-val">${entries.length}</span> entr${entries.length !== 1 ? 'ies' : 'y'}</span>`;
+    if (liveCount > 0) html += `<span class="ss-live">&#9679; ${liveCount} LIVE</span>`;
+    el.innerHTML = html;
+  }
 
 // ===== LIVE TAB =====
 
@@ -3271,21 +3311,23 @@ function renderLive() {
           if (mode === 'qs') {
             const isRunning = activeSessions.some(s => s.activityName === a && !s.paused);
             const aColor    = getActivityColor(study, a);
-            const chipStyle = aColor ? `--chip-color:${aColor};` : (section.color ? `--chip-color:${section.color};` : '');
+            const chipStyle = aColor
+              ? `--chip-color:${aColor}; background:${aColor}18; border-color:${aColor}44;`
+              : (section.color ? `--chip-color:${section.color};` : '');
             out += `<button class="activity-chip ${isRunning ? 'chip-running' : ''}"
               style="${chipStyle}"
               onclick="quickStartTimer('${esc(a)}')"
-              title="${isRunning ? 'Already running' : 'Start ' + esc(a)}">
-              ${isRunning ? '▶' : '▷'} ${esc(a)}
+              title="${isRunning ? 'Already running' : 'Start ' + esc(a)}">${aColor ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${aColor};flex-shrink:0;margin-right:2px;vertical-align:middle;"></span>` : ''}${isRunning ? '▶' : '▷'} ${esc(a)}
             </button>`;
           } else {
             const std = study.manualStd[a] || getAutoAvg(study, a);
             const aColor = getActivityColor(study, a);
-            const chipStyle = aColor ? `--chip-color:${aColor};` : (section.color ? `--chip-color:${section.color};` : '');
+            const chipStyle = aColor
+              ? `--chip-color:${aColor}; background:${aColor}18; border-color:${aColor}44;`
+              : (section.color ? `--chip-color:${section.color};` : '');
             out += `<button class="activity-chip chip-qa" style="${chipStyle}"
               onclick="quickAddEntry('${esc(a)}')"
-              title="Log ${esc(a)} at standard time">
-              ${esc(a)} <span class="chip-badge">${secsToStr(std)}</span>
+              title="Log ${esc(a)} at standard time">${aColor ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${aColor};flex-shrink:0;margin-right:2px;vertical-align:middle;"></span>` : ''}${esc(a)} <span class="chip-badge">${secsToStr(std)}</span>
             </button>`;
           }
         });
@@ -3499,19 +3541,21 @@ function _refreshChipsInPlace() {
           if (mode === 'qs') {
             const isRunning = activeSessions.some(s => s.activityName === a && !s.paused);
             const aColor    = getActivityColor(study, a);
-            const chipStyle = aColor ? `--chip-color:${aColor};` : (section.color ? `--chip-color:${section.color};` : '');
+            const chipStyle = aColor
+              ? `--chip-color:${aColor}; background:${aColor}18; border-color:${aColor}44;`
+              : (section.color ? `--chip-color:${section.color};` : '');
             out += `<button class="activity-chip ${isRunning ? 'chip-running' : ''}" style="${chipStyle}"
               onclick="quickStartTimer('${esc(a)}')"
-              title="${isRunning ? 'Already running' : 'Start ' + esc(a)}">
-              ${isRunning ? '▶' : '▷'} ${esc(a)}</button>`;
+              title="${isRunning ? 'Already running' : 'Start ' + esc(a)}">${aColor ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${aColor};flex-shrink:0;margin-right:2px;vertical-align:middle;"></span>` : ''}${isRunning ? '▶' : '▷'} ${esc(a)}</button>`;
           } else {
             const std = study.manualStd[a] || getAutoAvg(study, a);
             const aColor = getActivityColor(study, a);
-            const chipStyle = aColor ? `--chip-color:${aColor};` : (section.color ? `--chip-color:${section.color};` : '');
+            const chipStyle = aColor
+              ? `--chip-color:${aColor}; background:${aColor}18; border-color:${aColor}44;`
+              : (section.color ? `--chip-color:${section.color};` : '');
             out += `<button class="activity-chip chip-qa" style="${chipStyle}"
               onclick="quickAddEntry('${esc(a)}')"
-              title="Log ${esc(a)} at standard time">
-              ${esc(a)} <span class="chip-badge">${secsToStr(std)}</span></button>`;
+              title="Log ${esc(a)} at standard time">${aColor ? `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${aColor};flex-shrink:0;margin-right:2px;vertical-align:middle;"></span>` : ''}${esc(a)} <span class="chip-badge">${secsToStr(std)}</span></button>`;
           }
         });
         out += `</div>`;
@@ -5136,22 +5180,33 @@ function renderCharts() {
 
   document.getElementById('content').innerHTML = `
     <div class="card">
-      <div class="card-title">① Pareto — Cumulative Time by Activity</div>
+  <div class="card-title">&#9312; Daily Activity Clock</div>
+  <p class="chart-hint">${clockMode === '24' ? '24' : '12'}h clock — arcs show when each entry occurred. ${clockMode !== '24' ? 'AM &amp; PM overlap on same face.' : ''}</p>
+  <div style="display:flex;gap:6px;align-items:center;margin-bottom:12px;">
+    <span class="chart-hint" style="margin:0;">Mode:</span>
+    <button class="btn btn-xs ${clockMode==='12'?'btn-primary':'btn-ghost'}" onclick="setClockMode('12')">12h</button>
+    <button class="btn btn-xs ${clockMode==='24'?'btn-primary':'btn-ghost'}" onclick="setClockMode('24')">24h</button>
+  </div>
+  <div id="chart-clock"></div>
+  <div id="chart-clock-legend" style="margin-top:12px;"></div>
+</div>
+    <div class="card">
+      <div class="card-title">② Pareto — Cumulative Time by Activity</div>
       <div class="chart-hint">Which activities consume the most time? Focus on the left bars.</div>
       <div id="chart-pareto" style="overflow-x:auto;"></div>
     </div>
     <div class="card">
-      <div class="card-title">② Time Share by Activity</div>
+      <div class="card-title">③ Time Share by Activity</div>
       <div class="chart-hint">Proportional breakdown of total time spent.</div>
       <div id="chart-bar" style="overflow-x:auto;"></div>
     </div>
     <div class="card">
-      <div class="card-title">③ Daily Entry Count Trend</div>
+      <div class="card-title">④ Daily Entry Count Trend</div>
       <div class="chart-hint">How many observations were recorded each day?</div>
       <div id="chart-trend" style="overflow-x:auto;"></div>
     </div>
     <div class="card">
-      <div class="card-title">④ Duration Distribution (Histogram)</div>
+      <div class="card-title">⑤ Duration Distribution (Histogram)</div>
       <div class="chart-hint">Are your task durations tightly clustered or highly variable?</div>
       <div id="chart-hist" style="overflow-x:auto;"></div>
     </div>
@@ -5161,6 +5216,9 @@ function renderCharts() {
   drawBar(entries, W);
   drawTrend(entries, W);
   drawHistogram(entries, W);
+  const clockEntries = entries.filter(e => e.startTs && e.startTs > 1000000);
+  const W2 = document.getElementById('chart-clock') ? document.getElementById('chart-clock').offsetWidth || 340 : 340;
+  drawClock(clockEntries, W2);
 }
 
 // ── Shared chart helpers ──────────────────────────────────────────────────────
@@ -5447,6 +5505,111 @@ function drawHistogram(entries, W) {
   </svg>`;
   document.getElementById('chart-hist').innerHTML = svg;
 }
+
+  function setClockMode(m) {
+    clockMode = m;
+    renderCharts();
+  }
+
+  function drawClock(entries, W) {
+    const el = document.getElementById('chart-clock');
+    const legendEl = document.getElementById('chart-clock-legend');
+    if (!el) return;
+
+    const clockEntries = entries.filter(e => e.startTs && e.startTs > 1000000 && e.endTs && e.endTs > 1000000);
+    if (!clockEntries.length) {
+      el.innerHTML = '<div style="text-align:center;padding:32px 0;font-family:var(--mono);font-size:12px;color:var(--text3);">No entries with timestamps for selected range.</div>';
+      if (legendEl) legendEl.innerHTML = '';
+      return;
+    }
+
+    const is24 = (clockMode === '24');
+    const PERIOD = is24 ? 86400 : 43200;
+
+    const study = currentStudy();
+    const actNames = [...new Set(clockEntries.map(e => e.activity))];
+    const CHART_COLORS_LOCAL = typeof CHART_COLORS !== 'undefined' ? CHART_COLORS : ['#1d4ed8','#00875a','#b45309','#b91c1c','#7c3aed','#0891b2','#be185d','#047857'];
+    const colorMap = {};
+    actNames.forEach((a, i) => {
+      colorMap[a] = (study && typeof getActivityColor === 'function') ? (getActivityColor(study, a) || CHART_COLORS_LOCAL[i % CHART_COLORS_LOCAL.length]) : CHART_COLORS_LOCAL[i % CHART_COLORS_LOCAL.length];
+    });
+
+    const size = Math.min(W || 340, 380);
+    const cx = size / 2, cy = size / 2;
+    const outerR = size * 0.40;
+    const innerR = size * 0.16;
+    const ringH  = outerR - innerR;
+    const bandR  = innerR + ringH * 0.5;
+    const bandW  = Math.max(ringH * 0.72, 12);
+
+    function secToAngle(sec) { return ((sec % PERIOD) / PERIOD) * 2 * Math.PI; }
+    function pol(r, angle) { return { x: cx + r * Math.sin(angle), y: cy - r * Math.cos(angle) }; }
+
+    function arcPath(r, a1, a2, color, title) {
+      let delta = a2 - a1;
+      if (delta <= 0) delta += 2 * Math.PI;
+      if (delta > 2 * Math.PI - 0.001) delta = 2 * Math.PI - 0.001;
+      const largeArc = delta > Math.PI ? 1 : 0;
+      const end = a1 + delta;
+      const p1 = pol(r, a1), p2 = pol(r, end);
+      const t = (title||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+      return `<path d="M ${p1.x.toFixed(2)} ${p1.y.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${p2.x.toFixed(2)} ${p2.y.toFixed(2)}" fill="none" stroke="${color}" stroke-width="${bandW}" stroke-linecap="round" opacity="0.78"><title>${t}</title></path>`;
+    }
+
+    let svg = '';
+    svg += `<circle cx="${cx}" cy="${cy}" r="${bandR}" fill="none" stroke="var(--border)" stroke-width="${bandW}" opacity="0.35"/>`;
+
+    const tickCount = is24 ? 24 : 12;
+    for (let i = 0; i < tickCount; i++) {
+      const angle = (i / tickCount) * 2 * Math.PI;
+      const p1 = pol(outerR - 3, angle), p2 = pol(outerR + 4, angle);
+      svg += `<line x1="${p1.x.toFixed(2)}" y1="${p1.y.toFixed(2)}" x2="${p2.x.toFixed(2)}" y2="${p2.y.toFixed(2)}" stroke="var(--border)" stroke-width="1.5"/>`;
+    }
+
+    const labels = is24
+      ? [{h:'0',a:0},{h:'6',a:Math.PI/2},{h:'12',a:Math.PI},{h:'18',a:3*Math.PI/2}]
+      : [{h:'12',a:0},{h:'3',a:Math.PI/2},{h:'6',a:Math.PI},{h:'9',a:3*Math.PI/2}];
+    labels.forEach(({h,a}) => {
+      const lp = pol(outerR + 16, a);
+      svg += `<text x="${lp.x.toFixed(2)}" y="${(lp.y+4).toFixed(2)}" text-anchor="middle" font-size="12" fill="var(--text2)" font-family="monospace" font-weight="600">${h}</text>`;
+    });
+
+    clockEntries.forEach(e => {
+      const sd = new Date(e.startTs), ed = new Date(e.endTs);
+      const startSec = sd.getHours()*3600 + sd.getMinutes()*60 + sd.getSeconds();
+      let endSec = ed.getHours()*3600 + ed.getMinutes()*60 + ed.getSeconds();
+      if (endSec <= startSec && e.duration > 60) endSec = Math.min(startSec + (e.duration||0), PERIOD);
+      if (endSec <= startSec) endSec = startSec + 60;
+      const a1 = secToAngle(startSec), a2 = secToAngle(endSec);
+      const color = colorMap[e.activity] || 'var(--accent)';
+      const durStr = typeof secsToStr === 'function' ? secsToStr(e.duration||0) : '';
+      svg += arcPath(bandR, a1, a2, color, `${e.activity}: ${e.start||''}–${e.end||''} (${durStr})`);
+    });
+
+    const totalSecs = clockEntries.reduce((s,e) => s+(e.duration||0), 0);
+    const totalStr = typeof secsToStr === 'function' ? secsToStr(totalSecs) : '';
+    svg += `<text x="${cx}" y="${cy-10}" text-anchor="middle" font-size="10" fill="var(--text3)" font-family="monospace" letter-spacing="0.08em">TOTAL</text>`;
+    svg += `<text x="${cx}" y="${cy+12}" text-anchor="middle" font-size="15" font-weight="700" fill="var(--text)" font-family="monospace">${totalStr}</text>`;
+
+    const svgH = size + 8;
+    el.innerHTML = `<svg width="${size}" height="${svgH}" viewBox="0 0 ${size} ${svgH}" style="display:block;margin:0 auto;">${svg}</svg>`;
+
+    if (legendEl) {
+      const aggrMap = {};
+      clockEntries.forEach(e => { aggrMap[e.activity] = (aggrMap[e.activity]||0) + (e.duration||0); });
+      const sorted = Object.entries(aggrMap).sort((a,b) => b[1]-a[1]);
+      const fmtSecs = s => typeof secsToStr === 'function' ? secsToStr(s) : '';
+      const esc2 = s => (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      legendEl.innerHTML = `<div style="display:flex;flex-wrap:wrap;gap:6px 14px;">` +
+        sorted.map(([a,secs]) =>
+          `<div style="display:flex;align-items:center;gap:5px;font-size:11px;">` +
+          `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorMap[a]};flex-shrink:0;"></span>` +
+          `<span style="color:var(--text2);">${esc2(a)}</span>` +
+          `<span style="font-family:var(--mono);color:var(--text3);">${fmtSecs(secs)}</span>` +
+          `</div>`
+        ).join('') + `</div>`;
+    }
+  }
 
 // ===== SUMMARY TAB =====
 function getAutoAvg(study, act) {
@@ -6295,7 +6458,7 @@ function renderSettings() {
 
   <div class="card">
     <div class="card-title" style="color:var(--text3)">About</div>
-    <div class="text-sm text-muted">Time Study App V2 · Single-file HTML · localStorage persistence</div>
+    <div class="text-sm text-muted">TraceFlow App · Single-file HTML · localStorage persistence</div>
   </div>`;
 
   renderSettingsProfiles();
@@ -6859,7 +7022,7 @@ function importPreset(input) {
 
       // Validate
       if (!preset._type || !preset._type.startsWith('timestudy-preset')) {
-        alert('This file is not a valid Time Study preset.\n\nMake sure you are importing a preset file exported from this app, not a full backup.');
+        alert('This file is not a valid TraceFlow preset.\n\nMake sure you are importing a preset file exported from this app, not a full backup.');
         return;
       }
 
@@ -6931,7 +7094,7 @@ function importPreset(input) {
 
 function exportJson() {
   const json = JSON.stringify(db, null, 2);
-  downloadBlob(json, `TimeStudy_backup_${todayStr()}.json`, 'application/json');
+  downloadBlob(json, `TraceFlow_backup_${todayStr()}.json`, 'application/json');
 }
 
 function importJson(input) {

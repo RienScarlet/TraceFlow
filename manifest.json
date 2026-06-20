@@ -1,0 +1,19 @@
+{
+  "name": "TraceFlow",
+  "short_name": "TraceFlow",
+  "description": "TraceFlow — live timers, manual entry, charts & multi-study management.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f5f5f2",
+  "theme_color": "#1a1916",
+  "icons": [
+    { "src": "icons/icon-128.png", "sizes": "128x128", "type": "image/png" },
+    { "src": "icons/icon-144.png", "sizes": "144x144", "type": "image/png" },
+    { "src": "icons/icon-152.png", "sizes": "152x152", "type": "image/png" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Live Timers", "url": "./index.html#live", "description": "Open the live timer tab" },
+    { "name": "Log", "url": "./index.html#log", "description": "Open the entry log" }
+  ]
+}
